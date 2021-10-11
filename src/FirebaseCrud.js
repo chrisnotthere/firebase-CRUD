@@ -1,11 +1,12 @@
-import { Button, Container, Form, Grid, Header, Input, Segment, Table, TableHeaderCell } from "semantic-ui-react";
+import { Button, Container, Form, Grid, Header, Input, Segment, Table, TableHeaderCell, Icon } from "semantic-ui-react";
 import { useState, useEffect } from "react";
-import firebase from 'firebase/compat/app';
+//import firebase from 'firebase/compat/app';
 import {
   getFirestore,
   collection,
   addDoc,
   getDoc,
+  getDocs,
   query,
   orderBy,
   limit,
@@ -14,19 +15,35 @@ import {
   updateDoc,
   doc,
   serverTimestamp,
-} from 'firebase/compact/firestore';
+} from 'firebase/firestore';
+import { tsBooleanKeyword } from "@babel/types";
 
 const FirebaseCrud = () => {
+
+  const db = getFirestore();
 
   const [aFirstName, setAFirstName] = useState('');
   const [aLastName, setALastName] = useState('');
   const [userData, setUserData] = useState([]);
+  const [uFirstName, setuFirstName] = useState('');
+  const [uLastName, setuLastName] = useState('');
+  const [userId, setUserId] = useState('');
 
-  //load user data
+  let userInfo = [];
+  
   useEffect(() => {
-    const firestore = firebase.database().ref('/UserInfo');
-
-  },[]);
+    async function fetchData(){
+      const querySnapshot = await getDocs(collection(db, "UserInfo"));
+      querySnapshot.forEach((doc) => {
+        // doc.data() is never undefined for query doc snapshots
+        console.log(doc.id, " => ", doc.data());
+        userInfo.push(doc.data());
+      });
+      console.log(userInfo);
+      setUserData(userInfo);
+    }
+    fetchData();
+  }, [userData])
 
   // Saves a data to Cloud Firestore.
   async function handleAddUser() {
@@ -38,30 +55,48 @@ const FirebaseCrud = () => {
       });
     }
     catch(error) {
-      console.error('Error writing new message to Firebase Database', error);
+      console.error('Error writing user info to Firebase Database', error);
     }
   }
 
-  // const db = getFirestore(app);
-  // const docRef = doc(db, "cities", "SF");
-  // const docSnap = await getDoc(docRef);
+  async function handleUpdateUser(fname, lname) {   // still working on getting this to work correctly
+    //const firestore = 
 
-  // if (docSnap.exists()) {
-  //   console.log("Document data:", docSnap.data());
-  // } else {
-  //   // doc.data() will be undefined in this case
-  //   console.log("No such document!");
-  // }
+    const userInfoRef = doc(db, 'UserInfo', userId);
+
+    try {
+      await updateDoc(userInfoRef, {
+        FirstName: fname,
+        LastName: lname,
+      });
+    }
+    catch(error) {
+      console.error('Error updating user info in Firebase Database', error);
+    }
+
+    // db.collection("UserInfo").doc(userId).update({
+    //   FirstName: fname,
+    //   LastName: lname,
+    // }).then(function() {
+    //   console.log("document updated");
+    // });
+
+  }
 
 
+  const handleUpdateClick = (data) => {
+    setuFirstName(data.FirstName);
+    setuLastName(data.LastName);
+    setUserId(data.id);
+  }
 
   return (
-    <div class='ui hidden divider'>
+    <div className='ui hidden divider'>
       <Container>
         <Grid>
           <Grid.Row columns='2'>
             <Grid.Column>
-              <Segment>
+              <Segment padded='very'>
                 <Form>
                   <Form.Field>
                     <label>First Name</label>
@@ -85,24 +120,60 @@ const FirebaseCrud = () => {
                     <Button 
                       onClick={()=>{handleAddUser()}}
                       positive
-                    >Add User</Button>
+                    >
+                      <Icon name ='add circle'></Icon>
+                      Add User
+                    </Button>
                   </Form.Field>
                 </Form>
               </Segment>
             </Grid.Column>
-            <Grid.Column>Edit User</Grid.Column>
+            <Grid.Column>
+              <Segment padded='very'>
+                  <Form>
+                    <Form.Field>
+                      <label>First Name</label>
+                      <Input 
+                        placeholder='FirstName' 
+                        focus 
+                        value={uFirstName} 
+                        onChange={(e)=>{setuFirstName(e.target.value)}} 
+                      />
+                    </Form.Field>
+                    <Form.Field>
+                      <label>Last Name</label>
+                      <Input 
+                        placeholder='LastName' 
+                        focus 
+                        value={uLastName} 
+                        onChange={(e)=>{setuLastName(e.target.value)}} 
+                      />
+                    </Form.Field>
+                    <Form.Field>
+                      <Button 
+                        onClick={()=>{handleUpdateUser(uFirstName, uLastName)}}
+                        primary 
+                      >
+                        <Icon name='edit'>
+                        </Icon>
+                        Update User
+                      </Button>
+                    </Form.Field>
+                  </Form>
+                </Segment>
+              </Grid.Column>
           </Grid.Row>
-          <Grid.Row comlumns ='1'>
+          <Grid.Row columns ='1'>
             <Grid.Column>
               {userData.length === 0 ? (
-                <Segment>
-                  <Header>
+                <Segment padded='very'>
+                  <Header textAlign='center'>
                     Oops! There is no data available. Please enter some data.
                   </Header>
                 </Segment>
               ) : (
-                <Segment>
-                  <Table>
+                <Segment padded='very'>
+                  <Table celled fixed singleLine>
                     <Table.Header>
                       <Table.Row>
                         <TableHeaderCell>FirstName</TableHeaderCell>
@@ -110,6 +181,27 @@ const FirebaseCrud = () => {
                         <TableHeaderCell></TableHeaderCell>
                       </Table.Row>
                     </Table.Header>
+                    {console.log(userData)}
+                    {
+                      userData.map((data, index) => {
+                        return (
+                        <Table.Body>
+                          <Table.Cell>{data.FirstName}</Table.Cell>
+                          <Table.Cell>{data.LastName}</Table.Cell>
+                          <Table.Cell>
+                            <Button primary onClick={()=>{handleUpdateClick(data)}}>
+                              <Icon name='edit'></Icon>
+                              Update
+                            </Button>
+                            <Button color='red'>
+                              <Icon name='delete'></Icon>
+                              Delete
+                            </Button>
+                          </Table.Cell>
+                        </Table.Body>
+                        );
+                      })
+                    }
                   </Table>
               </Segment>
               )}
